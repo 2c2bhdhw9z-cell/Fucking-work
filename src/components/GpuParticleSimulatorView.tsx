@@ -164,7 +164,7 @@ export const GpuParticleSimulatorView: React.FC<GpuParticleSimulatorViewProps> =
         gpuEngineRef.current = null;
       }
     };
-  }, [gpuEngineRef]);
+  }, []);
 
   // Sync real-time parameter changes to Engine
   useEffect(() => {
