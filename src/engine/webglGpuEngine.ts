@@ -591,7 +591,7 @@ export class WebglGpuParticleEngine {
     this.initShaders();
     this.allocateGpuBuffers(this.settings.particleCount);
     this.initObstacles();
-    this.spawnPreset('galaxy');
+    this.spawnPreset('floating_dust');
   }
 
   private initObstacles(): void {
