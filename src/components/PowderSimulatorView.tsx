@@ -392,7 +392,7 @@ export const PowderSimulatorView: React.FC<PowderSimulatorViewProps> = ({
             setHoveredCell(null);
           }}
           className="w-full h-full max-w-full max-h-full object-contain rounded-xl border border-slate-800 shadow-2xl cursor-crosshair touch-none"
-          style={{ imageRendering: 'pixelated', touchAction: 'none', willChange: 'transform' }}
+          style={{ imageRendering: 'pixelated', touchAction: 'none' }}
         />
 
         {/* Hover Inspector Tooltip */}
