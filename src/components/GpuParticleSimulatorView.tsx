@@ -80,12 +80,11 @@ export const GpuParticleSimulatorView: React.FC<GpuParticleSimulatorViewProps> =
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [showTouchHint, setShowTouchHint] = useState<boolean>(true);
 
-  const mousePosRef = useRef<[number, number]>([-1000, -1000]);
-  const currentPresetRef = useRef<ParticlePresetType>('floating_dust');
-  const isActiveRef = useRef<boolean>(isActive);
-
   const [currentPreset, setCurrentPreset] = useState<ParticlePresetType>('floating_dust');
   const [touchMode, setTouchMode] = useState<number>(4); // 4 = Collide (Elastic Bounce) default!
+  const mousePosRef = useRef<[number, number]>([-1000, -1000]);
+  const currentPresetRef = useRef<ParticlePresetType>(currentPreset);
+  const isActiveRef = useRef<boolean>(isActive);
 
   useEffect(() => {
     currentPresetRef.current = currentPreset;
