@@ -64,6 +64,13 @@ export const PowderSimulatorView: React.FC<PowderSimulatorViewProps> = ({
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [isMouseDown, setIsMouseDown] = useState<boolean>(false);
 
+  // Refs to avoid stale closures in the animation loop
+  const isPausedRef = useRef<boolean>(false);
+  const isActiveRef = useRef<boolean>(isActive);
+
+  useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
+  useEffect(() => { isActiveRef.current = isActive; }, [isActive]);
+
   // Inspector Hover State
   const [hoveredCell, setHoveredCell] = useState<{
     x: number;
@@ -74,7 +81,7 @@ export const PowderSimulatorView: React.FC<PowderSimulatorViewProps> = ({
 
   const [gravityMode, setGravityMode] = useState<'down' | 'zero' | 'up' | 'left' | 'right'>('down');
 
-  // Animation Frame Loop
+  // Animation Frame Loop — runs once, reads latest state via refs
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -85,14 +92,15 @@ export const PowderSimulatorView: React.FC<PowderSimulatorViewProps> = ({
     }
     const engine = engineRef.current;
 
-    const ctx = canvas.getContext('2d', { alpha: false });
+    // Omit { alpha: false } — causes rendering glitches on iOS Safari
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     let animId: number;
 
     const renderLoop = () => {
-      if (isActive) {
-        if (!isPaused) {
+      if (isActiveRef.current) {
+        if (!isPausedRef.current) {
           engine.step();
         }
 
@@ -108,9 +116,10 @@ export const PowderSimulatorView: React.FC<PowderSimulatorViewProps> = ({
     return () => {
       cancelAnimationFrame(animId);
     };
-  }, [engineRef, isPaused, isActive]);
+  }, []); // Run once on mount — state accessed via refs to avoid stale closures
 
   // Handle Mouse / Touch Drawing
+  // Accounts for object-contain letterboxing so coords map to the actual rendered content
   const processPointerPos = useCallback(
     (clientX: number, clientY: number, draw: boolean) => {
       const canvas = canvasRef.current;
@@ -118,11 +127,29 @@ export const PowderSimulatorView: React.FC<PowderSimulatorViewProps> = ({
       if (!canvas || !engine) return;
 
       const rect = canvas.getBoundingClientRect();
-      const scaleX = engine.width / rect.width;
-      const scaleY = engine.height / rect.height;
 
-      const x = Math.floor((clientX - rect.left) * scaleX);
-      const y = Math.floor((clientY - rect.top) * scaleY);
+      // Compute the actual rendered content area inside the element
+      // (object-contain may add letterbox bars on sides or top/bottom)
+      const canvasAspect = engine.width / engine.height;
+      const elemAspect = rect.width / rect.height;
+
+      let contentW: number, contentH: number, offsetX: number, offsetY: number;
+      if (elemAspect > canvasAspect) {
+        // Wider element → letterbox on left/right
+        contentH = rect.height;
+        contentW = rect.height * canvasAspect;
+        offsetX = (rect.width - contentW) / 2;
+        offsetY = 0;
+      } else {
+        // Taller element → letterbox on top/bottom
+        contentW = rect.width;
+        contentH = rect.width / canvasAspect;
+        offsetX = 0;
+        offsetY = (rect.height - contentH) / 2;
+      }
+
+      const x = Math.floor(((clientX - rect.left) - offsetX) * (engine.width / contentW));
+      const y = Math.floor(((clientY - rect.top) - offsetY) * (engine.height / contentH));
 
       // Update Hover Inspector
       if (x >= 0 && x < engine.width && y >= 0 && y < engine.height) {
@@ -147,30 +174,60 @@ export const PowderSimulatorView: React.FC<PowderSimulatorViewProps> = ({
     [brushSize, brushShape, selectedElementId, engineRef]
   );
 
+  // Register non-passive touch listeners so e.preventDefault() works on iOS Safari
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      setIsMouseDown(true);
+      if (e.touches.length > 0) {
+        processPointerPos(e.touches[0].clientX, e.touches[0].clientY, true);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length > 0) {
+        processPointerPos(e.touches[0].clientX, e.touches[0].clientY, true);
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      setIsMouseDown(false);
+      setHoveredCell(null);
+    };
+
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+    canvas.addEventListener('touchcancel', onTouchEnd, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('touchstart', onTouchStart);
+      canvas.removeEventListener('touchmove', onTouchMove);
+      canvas.removeEventListener('touchend', onTouchEnd);
+      canvas.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [processPointerPos]);
+
   const handleCanvasPointer = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
+      // Skip touch-generated pointer events — handled by native touch listeners above
+      if (e.pointerType === 'touch') return;
       processPointerPos(e.clientX, e.clientY, isMouseDown || e.buttons === 1);
     },
     [processPointerPos, isMouseDown]
   );
 
-  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    setIsMouseDown(true);
-    if (e.touches.length > 0) {
-      processPointerPos(e.touches[0].clientX, e.touches[0].clientY, true);
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (e.touches.length > 0) {
-      processPointerPos(e.touches[0].clientX, e.touches[0].clientY, true);
-    }
-  };
-
-  const handleTouchEnd = () => {
-    setIsMouseDown(false);
-    setHoveredCell(null);
-  };
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (e.pointerType !== 'touch') setIsMouseDown(false);
+    },
+    []
+  );
 
   const setGravity = (mode: 'down' | 'zero' | 'up' | 'left' | 'right') => {
     setGravityMode(mode);
@@ -323,21 +380,19 @@ export const PowderSimulatorView: React.FC<PowderSimulatorViewProps> = ({
           width={320}
           height={200}
           onPointerDown={(e) => {
+            if (e.pointerType === 'touch') return;
             setIsMouseDown(true);
             handleCanvasPointer(e);
           }}
-          onPointerUp={() => setIsMouseDown(false)}
+          onPointerUp={handlePointerUp}
           onPointerMove={handleCanvasPointer}
-          onPointerLeave={() => {
+          onPointerLeave={(e) => {
+            if (e.pointerType === 'touch') return;
             setIsMouseDown(false);
             setHoveredCell(null);
           }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onTouchCancel={handleTouchEnd}
           className="w-full h-full max-w-full max-h-full object-contain rounded-xl border border-slate-800 shadow-2xl cursor-crosshair touch-none"
-          style={{ imageRendering: 'pixelated', touchAction: 'none' }}
+          style={{ imageRendering: 'pixelated', touchAction: 'none', willChange: 'transform' }}
         />
 
         {/* Hover Inspector Tooltip */}

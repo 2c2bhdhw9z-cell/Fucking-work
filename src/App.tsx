@@ -31,7 +31,7 @@ export default function App() {
   const autoFixesCount = (powderEngineRef.current?.diagnostic.autoFixesExecuted || 0) + (gpuEngineRef.current?.stats.autoHealingCount || 0);
 
   return (
-    <div className="w-screen h-screen flex flex-col bg-slate-950 font-sans text-slate-100 overflow-hidden select-none">
+    <div className="w-screen h-dvh flex flex-col bg-slate-950 font-sans text-slate-100 overflow-hidden select-none">
       {/* Top Header Navigation */}
       <Header
         activeTab={activeTab}
