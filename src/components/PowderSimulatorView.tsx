@@ -116,7 +116,7 @@ export const PowderSimulatorView: React.FC<PowderSimulatorViewProps> = ({
     return () => {
       cancelAnimationFrame(animId);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount — state accessed via refs to avoid stale closures
 
   // Handle Mouse / Touch Drawing
   // Accounts for object-contain letterboxing so coords map to the actual rendered content
@@ -220,6 +220,13 @@ export const PowderSimulatorView: React.FC<PowderSimulatorViewProps> = ({
       processPointerPos(e.clientX, e.clientY, isMouseDown || e.buttons === 1);
     },
     [processPointerPos, isMouseDown]
+  );
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (e.pointerType !== 'touch') setIsMouseDown(false);
+    },
+    []
   );
 
   const setGravity = (mode: 'down' | 'zero' | 'up' | 'left' | 'right') => {
@@ -377,7 +384,7 @@ export const PowderSimulatorView: React.FC<PowderSimulatorViewProps> = ({
             setIsMouseDown(true);
             handleCanvasPointer(e);
           }}
-          onPointerUp={(e) => { if (e.pointerType !== 'touch') setIsMouseDown(false); }}
+          onPointerUp={handlePointerUp}
           onPointerMove={handleCanvasPointer}
           onPointerLeave={(e) => {
             if (e.pointerType === 'touch') return;
