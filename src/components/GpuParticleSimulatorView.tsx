@@ -204,12 +204,23 @@ export const GpuParticleSimulatorView: React.FC<GpuParticleSimulatorViewProps> =
     touchMode
   ]);
 
+  const syncEngineSettingsToState = (engine: WebglGpuParticleEngine) => {
+    setGravityX(engine.settings.gravityX);
+    setGravityY(engine.settings.gravityY);
+    setFriction(engine.settings.friction);
+    setTurbulence(engine.settings.turbulence);
+    setParticleRepulsion(engine.settings.particleRepulsion);
+    setFloatBuoyancy(engine.settings.floatBuoyancy);
+    setBoundaryMode(engine.settings.boundaryMode as 'bounce' | 'wrap');
+  };
+
   const handleParticleCountChange = (count: number) => {
     setParticleCount(count);
     const engine = gpuEngineRef.current;
     if (engine) {
       engine.allocateGpuBuffers(count);
       engine.spawnPreset(currentPreset);
+      syncEngineSettingsToState(engine);
     }
   };
 
@@ -250,7 +261,11 @@ export const GpuParticleSimulatorView: React.FC<GpuParticleSimulatorViewProps> =
               id={`btn-gpu-preset-${preset.id}`}
               onClick={() => {
                 setCurrentPreset(preset.id);
-                gpuEngineRef.current?.spawnPreset(preset.id);
+                const engine = gpuEngineRef.current;
+                if (engine) {
+                  engine.spawnPreset(preset.id);
+                  syncEngineSettingsToState(engine);
+                }
                 setShowTouchHint(false);
               }}
               className={`px-2.5 py-1.5 rounded-xl text-slate-200 border flex items-center gap-1.5 font-medium shrink-0 transition-all text-xs ${
