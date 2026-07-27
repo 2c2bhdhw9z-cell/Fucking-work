@@ -1,0 +1,6 @@
+{
+  "name": "Powder & GPU Particle Simulator",
+  "description": "High-performance reaction powder simulator with 500 elements and extreme GPU particle simulator capable of up to 10M particles with real-time physics, performance controls, and auto-healing debug systems.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
