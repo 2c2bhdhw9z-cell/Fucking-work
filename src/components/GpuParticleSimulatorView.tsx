@@ -59,14 +59,14 @@ export const GpuParticleSimulatorView: React.FC<GpuParticleSimulatorViewProps> =
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Control parameters state
+  // Control parameters state — initial values match 'floating_dust' default preset
   const [particleCount, setParticleCount] = useState<number>(500000);
   const [gravityX, setGravityX] = useState<number>(0);
   const [gravityY, setGravityY] = useState<number>(0);
-  const [friction, setFriction] = useState<number>(0.992);
-  const [turbulence, setTurbulence] = useState<number>(0.25);
-  const [particleRepulsion, setParticleRepulsion] = useState<number>(0.05);
-  const [floatBuoyancy, setFloatBuoyancy] = useState<number>(0.0);
+  const [friction, setFriction] = useState<number>(0.998);
+  const [turbulence, setTurbulence] = useState<number>(0.45);
+  const [particleRepulsion, setParticleRepulsion] = useState<number>(0.45);
+  const [floatBuoyancy, setFloatBuoyancy] = useState<number>(0.2);
   const [bounceElasticity, setBounceElasticity] = useState<number>(0.85);
   const [hasObstacles, setHasObstacles] = useState<boolean>(false);
 
@@ -139,6 +139,8 @@ export const GpuParticleSimulatorView: React.FC<GpuParticleSimulatorViewProps> =
         gpuEngineRef.current = new WebglGpuParticleEngine(canvas, {
           particleCount: particleCount
         });
+        // Always spawn the correct preset so particle positions match the active UI preset
+        gpuEngineRef.current.spawnPreset(currentPresetRef.current);
       }
     } catch (err) {
       console.error('Failed to initialize WebGL GPU particle engine:', err);
@@ -204,12 +206,23 @@ export const GpuParticleSimulatorView: React.FC<GpuParticleSimulatorViewProps> =
     touchMode
   ]);
 
+  const syncEngineSettingsToState = (engine: WebglGpuParticleEngine) => {
+    setGravityX(engine.settings.gravityX);
+    setGravityY(engine.settings.gravityY);
+    setFriction(engine.settings.friction);
+    setTurbulence(engine.settings.turbulence);
+    setParticleRepulsion(engine.settings.particleRepulsion);
+    setFloatBuoyancy(engine.settings.floatBuoyancy);
+    setBoundaryMode(engine.settings.boundaryMode as 'bounce' | 'wrap');
+  };
+
   const handleParticleCountChange = (count: number) => {
     setParticleCount(count);
     const engine = gpuEngineRef.current;
     if (engine) {
       engine.allocateGpuBuffers(count);
       engine.spawnPreset(currentPreset);
+      syncEngineSettingsToState(engine);
     }
   };
 
@@ -250,7 +263,11 @@ export const GpuParticleSimulatorView: React.FC<GpuParticleSimulatorViewProps> =
               id={`btn-gpu-preset-${preset.id}`}
               onClick={() => {
                 setCurrentPreset(preset.id);
-                gpuEngineRef.current?.spawnPreset(preset.id);
+                const engine = gpuEngineRef.current;
+                if (engine) {
+                  engine.spawnPreset(preset.id);
+                  syncEngineSettingsToState(engine);
+                }
                 setShowTouchHint(false);
               }}
               className={`px-2.5 py-1.5 rounded-xl text-slate-200 border flex items-center gap-1.5 font-medium shrink-0 transition-all text-xs ${

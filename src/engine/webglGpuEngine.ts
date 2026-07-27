@@ -234,12 +234,12 @@ void main() {
         }
 
         // 5. Inter-Particle Collision / Spatial Density Repulsion
+        // Per-particle seed offset ensures each particle samples a unique noise region,
+        // preventing all particles from converging to the same noise attractor point.
         if (u_repulsion > 0.001) {
-            vec2 pGrid = pos * 0.012;
-            float d1 = snoise(pGrid + vec2(0.08, 0.0)) - snoise(pGrid - vec2(0.08, 0.0));
-            float d2 = snoise(pGrid + vec2(0.0, 0.08)) - snoise(pGrid - vec2(0.0, 0.08));
-            vec2 repelVec = vec2(-d1, -d2);
-            vel += repelVec * u_repulsion * 650.0 * dt;
+            float r1 = snoise(pos * 0.008 + vec2(seed * 0.13, u_time * 0.2));
+            float r2 = snoise(pos * 0.008 + vec2(u_time * 0.2, seed * 0.13));
+            vel += vec2(r1, r2) * u_repulsion * 400.0 * dt;
         }
 
         // 6. Integrate Position
@@ -591,7 +591,7 @@ export class WebglGpuParticleEngine {
     this.initShaders();
     this.allocateGpuBuffers(this.settings.particleCount);
     this.initObstacles();
-    this.spawnPreset('galaxy');
+    this.spawnPreset('floating_dust');
   }
 
   private initObstacles(): void {
