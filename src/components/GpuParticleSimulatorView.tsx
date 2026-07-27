@@ -80,10 +80,19 @@ export const GpuParticleSimulatorView: React.FC<GpuParticleSimulatorViewProps> =
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [showTouchHint, setShowTouchHint] = useState<boolean>(true);
 
-  const mousePosRef = useRef<[number, number]>([-1000, -1000]);
-
   const [currentPreset, setCurrentPreset] = useState<ParticlePresetType>('floating_dust');
   const [touchMode, setTouchMode] = useState<number>(4); // 4 = Collide (Elastic Bounce) default!
+  const mousePosRef = useRef<[number, number]>([-1000, -1000]);
+  const currentPresetRef = useRef<ParticlePresetType>(currentPreset);
+  const isActiveRef = useRef<boolean>(isActive);
+
+  useEffect(() => {
+    currentPresetRef.current = currentPreset;
+  }, [currentPreset]);
+
+  useEffect(() => {
+    isActiveRef.current = isActive;
+  }, [isActive]);
 
   // Canvas Resize Handler
   useEffect(() => {
@@ -135,12 +144,12 @@ export const GpuParticleSimulatorView: React.FC<GpuParticleSimulatorViewProps> =
       console.error('Failed to initialize WebGL GPU particle engine:', err);
     }
 
-    const engine = gpuEngineRef.current;
     let animId: number;
 
     const renderLoop = () => {
-      if (engine && isActive) {
-        engine.render(mousePosRef.current, currentPreset);
+      const engine = gpuEngineRef.current;
+      if (engine && isActiveRef.current) {
+        engine.render(mousePosRef.current, currentPresetRef.current);
       }
       animId = requestAnimationFrame(renderLoop);
     };
@@ -149,8 +158,12 @@ export const GpuParticleSimulatorView: React.FC<GpuParticleSimulatorViewProps> =
 
     return () => {
       cancelAnimationFrame(animId);
+      if (gpuEngineRef.current) {
+        gpuEngineRef.current.destroy();
+        gpuEngineRef.current = null;
+      }
     };
-  }, [gpuEngineRef, currentPreset, isActive]);
+  }, []);
 
   // Sync real-time parameter changes to Engine
   useEffect(() => {
